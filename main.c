@@ -52,21 +52,21 @@ void addQuestion(QuestionCollection *collection) {
     Question q;
     printf("Enter question text: ");
     fgets(q.text, MAX_LENGTH, stdin);
-    q.text[strcspn(q.text, "\n")] = 0;
+    q.text[strcspn(q.text, "\n")] = 0;  // Remove the newline character
 
     printf("Enter difficulty (1-10): ");
     scanf("%d", &q.difficulty);
-    getchar(); // Consume newline character
+    getchar();  // Consume newline character
 
     for (int i = 0; i < 4; i++) {
         printf("Enter option %d: ", i + 1);
         fgets(q.options[i], MAX_LENGTH, stdin);
-        q.options[i][strcspn(q.options[i], "\n")] = 0;
+        q.options[i][strcspn(q.options[i], "\n")] = 0;  // Remove the newline character
     }
 
     printf("Enter correct option number (1-4): ");
     scanf("%d", &q.correctOption);
-    getchar(); // Consume newline character
+    getchar();  // Consume newline character
 
     collection->questions[collection->count++] = q;
     saveQuestionsToFile(collection, FILENAME);
@@ -77,7 +77,7 @@ void editQuestion(QuestionCollection *collection) {
     int index;
     printf("Enter question number to edit (1-%d): ", collection->count);
     scanf("%d", &index);
-    getchar(); // Consume newline character
+    getchar();  // Consume newline character
 
     if (index < 1 || index > collection->count) {
         printf("Invalid question number.\n");
@@ -98,7 +98,7 @@ void editQuestion(QuestionCollection *collection) {
     printf("Enter new difficulty (1-10) (current: %d): ", q->difficulty);
     int newDifficulty;
     scanf("%d", &newDifficulty);
-    getchar(); // Consume newline character
+    getchar();  // Consume newline character
     if (newDifficulty >= 1 && newDifficulty <= 10) {
         q->difficulty = newDifficulty;
     }
@@ -115,7 +115,7 @@ void editQuestion(QuestionCollection *collection) {
     printf("Enter new correct option number (1-4) (current: %d): ", q->correctOption);
     int newCorrectOption;
     scanf("%d", &newCorrectOption);
-    getchar(); // Consume newline character
+    getchar();  // Consume newline character
     if (newCorrectOption >= 1 && newCorrectOption <= 4) {
         q->correctOption = newCorrectOption;
     }
@@ -161,7 +161,7 @@ void phoneAFriend(Question *q) {
 
 // Функция за стартиране на играта
 void startGame(QuestionCollection *collection) {
-    if (collection->count < 10) {
+    if (collection->count < 2) {
         printf("Not enough questions to start the game.\n");
         return;
     }
@@ -179,60 +179,67 @@ void startGame(QuestionCollection *collection) {
         selectedQuestions[i] = collection->questions[index];
     }
 
-    int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
-
     for (int i = 0; i < 10; i++) {
         Question *q = &selectedQuestions[i];
-        printf("Question %d: %s\n", i + 1, q->text);
-        for (int j = 0; j < 4; j++) {
-            printf("%d. %s\n", j + 1, q->options[j]);
-        }
+        int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
 
-        if (joker5050 || jokerFriend || jokerAudience) {
-            printf("Available jokers: ");
-            if (joker5050) printf("1. 50/50 ");
-            if (jokerFriend) printf("2. Phone a Friend ");
-            if (jokerAudience) printf("3. Audience Help ");
-            printf("\n");
-        }
-
-        int answer, joker;
-        printf("Enter your answer (1-4) or joker number (5-7): ");
-        scanf("%d", &answer);
-        getchar(); // Consume newline character
-
-        if (answer >= 5 && answer <= 7) {
-            joker = answer;
-            answer = 0;
-        } else {
-            joker = 0;
-        }
-
-        if (joker == 5 && joker5050) {
-            joker5050 = 0;
-            int wrongAnswers[3], count = 0;
+        while (1) {
+            printf("Question %d: %s\n", i + 1, q->text);
             for (int j = 0; j < 4; j++) {
-                if (j + 1 != q->correctOption) {
-                    wrongAnswers[count++] = j + 1;
-                }
+                printf("%d. %s\n", j + 1, q->options[j]);
             }
-            printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
-        } else if (joker == 6 && jokerFriend) {
-            jokerFriend = 0;
-            phoneAFriend(q);
-        } else if (joker == 7 && jokerAudience) {
-            jokerAudience = 0;
-            audienceHelp(q);
-        } else if (answer == q->correctOption) {
-            printf("Correct!\n");
-        } else {
-            printf("Wrong! The correct answer was: %d. Game over.\n", q->correctOption);
-            return;
+
+            if (joker5050 || jokerFriend || jokerAudience) {
+                printf("Available jokers: ");
+                if (joker5050) printf("1. 50/50 ");
+                if (jokerFriend) printf("2. Phone a Friend ");
+                if (jokerAudience) printf("3. Audience Help ");
+                printf("\n");
+            }
+
+            int answer, joker;
+            printf("Enter your answer (1-4) or joker number (5-7): ");
+            scanf("%d", &answer);
+            getchar();  // Consume newline character
+
+            if (answer >= 5 && answer <= 7) {
+                joker = answer;
+                answer = 0;
+            } else {
+                joker = 0;
+            }
+
+            if (joker == 5 && joker5050) {
+                joker5050 = 0;
+                int wrongAnswers[3], count = 0;
+                for (int j = 0; j < 4; j++) {
+                    if (j + 1 != q->correctOption) {
+                        wrongAnswers[count++] = j + 1;
+                    }
+                }
+                printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
+                continue;  // Continue to prompt for answer
+            } else if (joker == 6 && jokerFriend) {
+                jokerFriend = 0;
+                phoneAFriend(q);
+                continue;  // Continue to prompt for answer
+            } else if (joker == 7 && jokerAudience) {
+                jokerAudience = 0;
+                audienceHelp(q);
+                continue;  // Continue to prompt for answer
+            } else if (answer == q->correctOption) {
+                printf("Correct!\n");
+                break; // Break out of the while loop to move to the next question
+            } else {
+                printf("Wrong! The correct answer was: %d.\n", q->correctOption);
+            }
         }
     }
 
     printf("Congratulations! You answered all questions correctly.\n");
 }
+
+
 
 int main() {
     QuestionCollection collection = { .count = 0 };
@@ -242,7 +249,7 @@ int main() {
         printMenu();
         int choice;
         scanf("%d", &choice);
-        getchar(); // Consume newline character
+        getchar();  // Consume newline character
 
         switch (choice) {
             case 1:
