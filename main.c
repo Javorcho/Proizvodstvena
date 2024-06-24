@@ -2,10 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "aes.h" // Include the AES library header
 
 #define MAX_QUESTIONS 100
 #define MAX_LENGTH 256
 #define FILENAME "questions.dat"
+#define KEY_SIZE 16 // AES key size (128-bit)
+#define IV_SIZE 16 // AES block size (128-bit)
+
+const uint8_t key[KEY_SIZE] = "mysecretkey12345"; // 16-byte key for AES
+const uint8_t iv[IV_SIZE] = "myiv123456789012";   // 16-byte IV for AES
 
 // Структура за въпрос
 typedef struct {
@@ -21,6 +27,19 @@ typedef struct {
     int count;
 } QuestionCollection;
 
+// Функции за криптиране и декриптиране на данни
+void encryptData(uint8_t *data, size_t length, const uint8_t *key, const uint8_t *iv) {
+    struct AES_ctx ctx;
+    AES_init_ctx_iv(&ctx, key, iv);
+    AES_CBC_encrypt_buffer(&ctx, data, length);
+}
+
+void decryptData(uint8_t *data, size_t length, const uint8_t *key, const uint8_t *iv) {
+    struct AES_ctx ctx;
+    AES_init_ctx_iv(&ctx, key, iv);
+    AES_CBC_decrypt_buffer(&ctx, data, length);
+}
+
 // Функции за четене и записване на въпроси във файл
 void saveQuestionsToFile(QuestionCollection *collection, const char *filename) {
     FILE *file = fopen(filename, "wb");
@@ -28,7 +47,17 @@ void saveQuestionsToFile(QuestionCollection *collection, const char *filename) {
         perror("Cannot open file for writing");
         return;
     }
-    fwrite(collection, sizeof(QuestionCollection), 1, file);
+
+    size_t dataSize = sizeof(QuestionCollection);
+    size_t paddedSize = ((dataSize + AES_BLOCKLEN - 1) / AES_BLOCKLEN) * AES_BLOCKLEN; // Align size to block size
+    uint8_t *data = malloc(paddedSize);
+    memset(data, 0, paddedSize); // Zero out the padded buffer
+    memcpy(data, collection, dataSize);
+
+    encryptData(data, paddedSize, key, iv);
+
+    fwrite(data, 1, paddedSize, file);
+    free(data);
     fclose(file);
 }
 
@@ -38,11 +67,23 @@ void loadQuestionsFromFile(QuestionCollection *collection, const char *filename)
         perror("Cannot open file for reading");
         return;
     }
-    fread(collection, sizeof(QuestionCollection), 1, file);
+
+    fseek(file, 0, SEEK_END);
+    size_t fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    uint8_t *data = malloc(fileSize);
+    fread(data, 1, fileSize, file);
+
+    decryptData(data, fileSize, key, iv);
+    memcpy(collection, data, sizeof(QuestionCollection));
+    
+    free(data);
     fclose(file);
 }
 
-// Функция за добавяне на нов въпрос
+// Rest of your code (addQuestion, editQuestion, printMenu, audienceHelp, phoneAFriend, startGame, main) ...
+
 void addQuestion(QuestionCollection *collection) {
     if (collection->count >= MAX_QUESTIONS) {
         printf("Maximum number of questions reached.\n");
@@ -72,7 +113,6 @@ void addQuestion(QuestionCollection *collection) {
     saveQuestionsToFile(collection, FILENAME);
 }
 
-// Функция за редактиране на съществуващ въпрос
 void editQuestion(QuestionCollection *collection) {
     int index;
     printf("Enter question number to edit (1-%d): ", collection->count);
@@ -123,7 +163,6 @@ void editQuestion(QuestionCollection *collection) {
     saveQuestionsToFile(collection, FILENAME);
 }
 
-// Функция за извеждане на менюто
 void printMenu() {
     printf("\nMenu:\n");
     printf("1. Start Game\n");
@@ -133,7 +172,6 @@ void printMenu() {
     printf("Enter your choice: ");
 }
 
-// Функция за симулиране на помощ от публиката
 void audienceHelp(Question *q) {
     int votes[4] = {0};
     int totalVotes = 100;
@@ -152,14 +190,12 @@ void audienceHelp(Question *q) {
     }
 }
 
-// Функция за симулиране на обаждане на приятел
 void phoneAFriend(Question *q) {
     int correctChance = (q->difficulty <= 3) ? 80 : (q->difficulty <= 6) ? 60 : 30;
     int friendAnswer = (rand() % 100 < correctChance) ? q->correctOption : (rand() % 4) + 1;
     printf("Your friend thinks the answer is: %d\n", friendAnswer);
 }
 
-// Функция за стартиране на играта
 void startGame(QuestionCollection *collection) {
     if (collection->count < 2) {
         printf("Not enough questions to start the game.\n");
@@ -218,20 +254,21 @@ void startGame(QuestionCollection *collection) {
                     }
                 }
                 printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
+                continue;  // Continue to prompt for answer
             } else if (joker == 6 && jokerFriend) {
                 jokerFriend = 0;
                 phoneAFriend(q);
+                continue;  // Continue to prompt for answer
             } else if (joker == 7 && jokerAudience) {
                 jokerAudience = 0;
                 audienceHelp(q);
+                continue;  // Continue to prompt for answer
             } else if (answer == q->correctOption) {
                 printf("Correct!\n");
                 break; // Break out of the while loop to move to the next question
-            } else if (answer >= 1 && answer <= 4) {
-                printf("Wrong! The correct answer was: %d.\n", q->correctOption);
-                break; // Break out of the while loop to move to the next question
             } else {
-                printf("Invalid input. Please enter a number between 1 and 7.\n");
+                printf("Wrong! The correct answer was: %d.\n", q->correctOption);
+                break; // Move to the next question after a wrong answer
             }
         }
     }
