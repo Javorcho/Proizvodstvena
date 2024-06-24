@@ -218,28 +218,26 @@ void startGame(QuestionCollection *collection) {
                     }
                 }
                 printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
-                continue;  // Continue to prompt for answer
             } else if (joker == 6 && jokerFriend) {
                 jokerFriend = 0;
                 phoneAFriend(q);
-                continue;  // Continue to prompt for answer
             } else if (joker == 7 && jokerAudience) {
                 jokerAudience = 0;
                 audienceHelp(q);
-                continue;  // Continue to prompt for answer
             } else if (answer == q->correctOption) {
                 printf("Correct!\n");
                 break; // Break out of the while loop to move to the next question
-            } else {
+            } else if (answer >= 1 && answer <= 4) {
                 printf("Wrong! The correct answer was: %d.\n", q->correctOption);
+                break; // Break out of the while loop to move to the next question
+            } else {
+                printf("Invalid input. Please enter a number between 1 and 7.\n");
             }
         }
     }
 
     printf("Congratulations! You answered all questions correctly.\n");
 }
-
-
 
 int main() {
     QuestionCollection collection = { .count = 0 };
