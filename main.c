@@ -3,16 +3,12 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#include "aes.h" // Include the AES library header
 
 #define MAX_QUESTIONS 100
 #define MAX_LENGTH 256
 #define FILENAME "questions.dat"
 #define KEY_SIZE 16 // AES key size (128-bit)
 #define IV_SIZE 16 // AES block size (128-bit)
-
-const uint8_t key[KEY_SIZE] = "mysecretkey12345"; // 16-byte key for AES
-const uint8_t iv[IV_SIZE] = "myiv123456789012";   // 16-byte IV for AES
 
 // Структура за въпрос
 typedef struct {
@@ -29,16 +25,24 @@ typedef struct {
 } QuestionCollection;
 
 // Функции за криптиране и декриптиране на данни
-void encryptData(uint8_t *data, size_t length, const uint8_t *key, const uint8_t *iv) {
-    struct AES_ctx ctx;
-    AES_init_ctx_iv(&ctx, key, iv);
-    AES_CBC_encrypt_buffer(&ctx, data, length);
+void encryptData(char *data, size_t length, int key) {
+    for (size_t i = 0; i < length; i++) {
+        if (data[i] >= 'a' && data[i] <= 'z') {
+            data[i] = 'a' + (data[i] - 'a' + key) % 26;
+        } else if (data[i] >= 'A' && data[i] <= 'Z') {
+            data[i] = 'A' + (data[i] - 'A' + key) % 26;
+        }
+    }
 }
 
-void decryptData(uint8_t *data, size_t length, const uint8_t *key, const uint8_t *iv) {
-    struct AES_ctx ctx;
-    AES_init_ctx_iv(&ctx, key, iv);
-    AES_CBC_decrypt_buffer(&ctx, data, length);
+void decryptData(char *data, size_t length, int key) {
+    for (size_t i = 0; i < length; i++) {
+        if (data[i] >= 'a' && data[i] <= 'z') {
+            data[i] = 'a' + (data[i] - 'a' - key + 26) % 26;
+        } else if (data[i] >= 'A' && data[i] <= 'Z') {
+            data[i] = 'A' + (data[i] - 'A' - key + 26) % 26;
+        }
+    }
 }
 
 // Функции за четене и записване на въпроси във файл
@@ -50,14 +54,12 @@ void saveQuestionsToFile(QuestionCollection *collection, const char *filename) {
     }
 
     size_t dataSize = sizeof(QuestionCollection);
-    size_t paddedSize = ((dataSize + AES_BLOCKLEN - 1) / AES_BLOCKLEN) * AES_BLOCKLEN; // Align size to block size
-    uint8_t *data = malloc(paddedSize);
-    memset(data, 0, paddedSize); // Zero out the padded buffer
+    char *data = malloc(dataSize);
     memcpy(data, collection, dataSize);
 
-    encryptData(data, paddedSize, key, iv);
+    encryptData(data, dataSize, 3); // Use a key of 3 for Caesar cipher
 
-    fwrite(data, 1, paddedSize, file);
+    fwrite(data, 1, dataSize, file);
     free(data);
     fclose(file);
 }
@@ -73,12 +75,12 @@ void loadQuestionsFromFile(QuestionCollection *collection, const char *filename)
     size_t fileSize = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    uint8_t *data = malloc(fileSize);
+    char *data = malloc(fileSize);
     fread(data, 1, fileSize, file);
 
-    decryptData(data, fileSize, key, iv);
+    decryptData(data, fileSize, 3); // Use a key of 3 for Caesar cipher
     memcpy(collection, data, sizeof(QuestionCollection));
-    
+
     free(data);
     fclose(file);
 }
@@ -216,14 +218,23 @@ void startGame(QuestionCollection *collection) {
         selectedQuestions[i] = collection->questions[index];
     }
 
+    int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
+
     for (int i = 0; i < 10; i++) {
         Question *q = &selectedQuestions[i];
-        int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
+        int reducedOptions[2] = {0}; // To store the 50/50 options
+        int jokerUsedInThisQuestion = 0; // To ensure only one joker is used per question
 
         while (1) {
             printf("Question %d: %s\n", i + 1, q->text);
-            for (int j = 0; j < 4; j++) {
-                printf("%d. %s\n", j + 1, q->options[j]);
+
+            if (joker5050 == 0 && jokerUsedInThisQuestion == 5) {
+                printf("1. %s\n", q->options[reducedOptions[0] - 1]);
+                printf("2. %s\n", q->options[reducedOptions[1] - 1]);
+            } else {
+                for (int j = 0; j < 4; j++) {
+                    printf("%d. %s\n", j + 1, q->options[j]);
+                }
             }
 
             if (joker5050 || jokerFriend || jokerAudience) {
@@ -234,7 +245,7 @@ void startGame(QuestionCollection *collection) {
                 printf("\n");
             }
 
-            int answer, joker;
+            int answer, joker = 0;
             printf("Enter your answer (1-4) or joker number (5-7): ");
             scanf("%d", &answer);
             getchar();  // Consume newline character
@@ -242,39 +253,56 @@ void startGame(QuestionCollection *collection) {
             if (answer >= 5 && answer <= 7) {
                 joker = answer;
                 answer = 0;
-            } else {
-                joker = 0;
             }
 
-            if (joker == 5 && joker5050) {
-                joker5050 = 0;
-                int wrongAnswers[3], count = 0;
-                for (int j = 0; j < 4; j++) {
-                    if (j + 1 != q->correctOption) {
-                        wrongAnswers[count++] = j + 1;
+            if (joker == 5) {
+                if (joker5050 && jokerUsedInThisQuestion == 0) {
+                    joker5050 = 0;
+                    jokerUsedInThisQuestion = 5;
+                    int wrongAnswers[3], count = 0;
+                    for (int j = 0; j < 4; j++) {
+                        if (j + 1 != q->correctOption) {
+                            wrongAnswers[count++] = j + 1;
+                        }
                     }
+                    reducedOptions[0] = q->correctOption;
+                    reducedOptions[1] = wrongAnswers[rand() % 3];
+                    printf("50/50 joker used. Remaining options: %d, %d\n", reducedOptions[0], reducedOptions[1]);
+                } else {
+                    printf("50/50 joker is not available or already used for this question.\n");
                 }
-                printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
-                continue;  // Continue to prompt for answer
-            } else if (joker == 6 && jokerFriend) {
-                jokerFriend = 0;
-                phoneAFriend(q);
-                continue;  // Continue to prompt for answer
-            } else if (joker == 7 && jokerAudience) {
-                jokerAudience = 0;
-                audienceHelp(q);
-                continue;  // Continue to prompt for answer
-            } else if (answer == q->correctOption) {
-                printf("Correct!\n");
-                break; // Break out of the while loop to move to the next question
+            } else if (joker == 6) {
+                if (jokerFriend && jokerUsedInThisQuestion == 0) {
+                    jokerFriend = 0;
+                    jokerUsedInThisQuestion = 6;
+                    phoneAFriend(q);
+                } else {
+                    printf("Phone a Friend joker is not available or already used for this question.\n");
+                }
+            } else if (joker == 7) {
+                if (jokerAudience && jokerUsedInThisQuestion == 0) {
+                    jokerAudience = 0;
+                    jokerUsedInThisQuestion = 7;
+                    audienceHelp(q);
+                } else {
+                    printf("Audience Help joker is not available or already used for this question.\n");
+                }
+            } else if (answer >= 1 && answer <= 4) {
+                int selectedAnswer = (joker5050 == 0 && jokerUsedInThisQuestion == 5) ? reducedOptions[answer - 1] : answer;
+                if (selectedAnswer == q->correctOption) {
+                    printf("Correct!\n");
+                    break; // Break out of the while loop to move to the next question
+                } else {
+                    printf("Wrong! The correct answer was: %d.\n", q->correctOption);
+                    break; // Move to the next question after a wrong answer
+                }
             } else {
-                printf("Wrong! The correct answer was: %d.\n", q->correctOption);
-                break; // Move to the next question after a wrong answer
+                printf("Invalid input. Please try again.\n");
             }
         }
     }
 
-    printf("Congratulations! You answered all questions correctly.\n");
+    printf("Game Over. You completed the game.\n");
 }
 
 int main() {
