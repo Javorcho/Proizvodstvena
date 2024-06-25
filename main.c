@@ -7,10 +7,9 @@
 #define MAX_QUESTIONS 100
 #define MAX_LENGTH 256
 #define FILENAME "questions.dat"
-#define KEY_SIZE 16 // AES key size (128-bit)
-#define IV_SIZE 16 // AES block size (128-bit)
+#define KEY_SIZE 16 
+#define IV_SIZE 16 
 
-// Структура за въпрос
 typedef struct {
     char text[MAX_LENGTH];
     int difficulty;
@@ -18,13 +17,11 @@ typedef struct {
     int correctOption;
 } Question;
 
-// Структура за колекция от въпроси
 typedef struct {
     Question questions[MAX_QUESTIONS];
     int count;
 } QuestionCollection;
 
-// Функции за криптиране и декриптиране на данни
 void encryptData(char *data, size_t length, int key) {
     for (size_t i = 0; i < length; i++) {
         if (data[i] >= 'a' && data[i] <= 'z') {
@@ -45,7 +42,6 @@ void decryptData(char *data, size_t length, int key) {
     }
 }
 
-// Функции за четене и записване на въпроси във файл
 void saveQuestionsToFile(QuestionCollection *collection, const char *filename) {
     FILE *file = fopen(filename, "wb");
     if (!file) {
@@ -57,7 +53,7 @@ void saveQuestionsToFile(QuestionCollection *collection, const char *filename) {
     char *data = malloc(dataSize);
     memcpy(data, collection, dataSize);
 
-    encryptData(data, dataSize, 3); // Use a key of 3 for Caesar cipher
+    encryptData(data, dataSize, 3); 
 
     fwrite(data, 1, dataSize, file);
     free(data);
@@ -78,14 +74,12 @@ void loadQuestionsFromFile(QuestionCollection *collection, const char *filename)
     char *data = malloc(fileSize);
     fread(data, 1, fileSize, file);
 
-    decryptData(data, fileSize, 3); // Use a key of 3 for Caesar cipher
+    decryptData(data, fileSize, 3); 
     memcpy(collection, data, sizeof(QuestionCollection));
 
     free(data);
     fclose(file);
 }
-
-// Rest of your code (addQuestion, editQuestion, printMenu, audienceHelp, phoneAFriend, startGame, main) ...
 
 void addQuestion(QuestionCollection *collection) {
     if (collection->count >= MAX_QUESTIONS) {
@@ -96,21 +90,21 @@ void addQuestion(QuestionCollection *collection) {
     Question q;
     printf("Enter question text: ");
     fgets(q.text, MAX_LENGTH, stdin);
-    q.text[strcspn(q.text, "\n")] = 0;  // Remove the newline character
+    q.text[strcspn(q.text, "\n")] = 0; 
 
     printf("Enter difficulty (1-10): ");
     scanf("%d", &q.difficulty);
-    getchar();  // Consume newline character
+    getchar(); 
 
     for (int i = 0; i < 4; i++) {
         printf("Enter option %d: ", i + 1);
         fgets(q.options[i], MAX_LENGTH, stdin);
-        q.options[i][strcspn(q.options[i], "\n")] = 0;  // Remove the newline character
+        q.options[i][strcspn(q.options[i], "\n")] = 0; 
     }
 
     printf("Enter correct option number (1-4): ");
     scanf("%d", &q.correctOption);
-    getchar();  // Consume newline character
+    getchar(); 
 
     collection->questions[collection->count++] = q;
     saveQuestionsToFile(collection, FILENAME);
@@ -120,7 +114,7 @@ void editQuestion(QuestionCollection *collection) {
     int index;
     printf("Enter question number to edit (1-%d): ", collection->count);
     scanf("%d", &index);
-    getchar();  // Consume newline character
+    getchar(); 
 
     if (index < 1 || index > collection->count) {
         printf("Invalid question number.\n");
@@ -141,7 +135,7 @@ void editQuestion(QuestionCollection *collection) {
     printf("Enter new difficulty (1-10) (current: %d): ", q->difficulty);
     int newDifficulty;
     scanf("%d", &newDifficulty);
-    getchar();  // Consume newline character
+    getchar(); 
     if (newDifficulty >= 1 && newDifficulty <= 10) {
         q->difficulty = newDifficulty;
     }
@@ -158,7 +152,7 @@ void editQuestion(QuestionCollection *collection) {
     printf("Enter new correct option number (1-4) (current: %d): ", q->correctOption);
     int newCorrectOption;
     scanf("%d", &newCorrectOption);
-    getchar();  // Consume newline character
+    getchar(); 
     if (newCorrectOption >= 1 && newCorrectOption <= 4) {
         q->correctOption = newCorrectOption;
     }
@@ -218,23 +212,14 @@ void startGame(QuestionCollection *collection) {
         selectedQuestions[i] = collection->questions[index];
     }
 
-    int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
-
     for (int i = 0; i < 10; i++) {
         Question *q = &selectedQuestions[i];
-        int reducedOptions[2] = {0}; // To store the 50/50 options
-        int jokerUsedInThisQuestion = 0; // To ensure only one joker is used per question
+        int joker5050 = 1, jokerFriend = 1, jokerAudience = 1;
 
         while (1) {
             printf("Question %d: %s\n", i + 1, q->text);
-
-            if (joker5050 == 0 && jokerUsedInThisQuestion == 5) {
-                printf("1. %s\n", q->options[reducedOptions[0] - 1]);
-                printf("2. %s\n", q->options[reducedOptions[1] - 1]);
-            } else {
-                for (int j = 0; j < 4; j++) {
-                    printf("%d. %s\n", j + 1, q->options[j]);
-                }
+            for (int j = 0; j < 4; j++) {
+                printf("%d. %s\n", j + 1, q->options[j]);
             }
 
             if (joker5050 || jokerFriend || jokerAudience) {
@@ -245,64 +230,53 @@ void startGame(QuestionCollection *collection) {
                 printf("\n");
             }
 
-            int answer, joker = 0;
+            int answer, joker;
             printf("Enter your answer (1-4) or joker number (5-7): ");
             scanf("%d", &answer);
-            getchar();  // Consume newline character
+            getchar(); 
 
             if (answer >= 5 && answer <= 7) {
                 joker = answer;
                 answer = 0;
+            } else {
+                joker = 0;
             }
 
-            if (joker == 5) {
-                if (joker5050 && jokerUsedInThisQuestion == 0) {
-                    joker5050 = 0;
-                    jokerUsedInThisQuestion = 5;
-                    int wrongAnswers[3], count = 0;
-                    for (int j = 0; j < 4; j++) {
-                        if (j + 1 != q->correctOption) {
-                            wrongAnswers[count++] = j + 1;
-                        }
+            if (joker == 5 && joker5050) {
+                joker5050 = 0;
+                int wrongAnswers[3], count = 0;
+                for (int j = 0; j < 4; j++) {
+                    if (j + 1 != q->correctOption) {
+                        wrongAnswers[count++] = j + 1;
                     }
-                    reducedOptions[0] = q->correctOption;
-                    reducedOptions[1] = wrongAnswers[rand() % 3];
-                    printf("50/50 joker used. Remaining options: %d, %d\n", reducedOptions[0], reducedOptions[1]);
-                } else {
-                    printf("50/50 joker is not available or already used for this question.\n");
                 }
-            } else if (joker == 6) {
-                if (jokerFriend && jokerUsedInThisQuestion == 0) {
-                    jokerFriend = 0;
-                    jokerUsedInThisQuestion = 6;
-                    phoneAFriend(q);
-                } else {
-                    printf("Phone a Friend joker is not available or already used for this question.\n");
-                }
-            } else if (joker == 7) {
-                if (jokerAudience && jokerUsedInThisQuestion == 0) {
-                    jokerAudience = 0;
-                    jokerUsedInThisQuestion = 7;
-                    audienceHelp(q);
-                } else {
-                    printf("Audience Help joker is not available or already used for this question.\n");
-                }
-            } else if (answer >= 1 && answer <= 4) {
-                int selectedAnswer = (joker5050 == 0 && jokerUsedInThisQuestion == 5) ? reducedOptions[answer - 1] : answer;
-                if (selectedAnswer == q->correctOption) {
-                    printf("Correct!\n");
-                    break; // Break out of the while loop to move to the next question
-                } else {
-                    printf("Wrong! The correct answer was: %d.\n", q->correctOption);
-                    break; // Move to the next question after a wrong answer
-                }
+                printf("50/50 joker used. Remaining options: %d, %d\n", q->correctOption, wrongAnswers[rand() % 3]);
+            } else if (joker == 6 && jokerFriend) {
+                jokerFriend = 0;
+                phoneAFriend(q);
+            } else if (joker == 7 && jokerAudience) {
+                jokerAudience = 0;
+                audienceHelp(q);
+            }else if(answer == 5 && joker5050 ==0){
+                printf("Already used joker\n");
+                continue; 
+            }else if(answer ==6 && jokerFriend == 0){
+                printf("Already used joker\n");
+                continue; 
+            }else if(answer ==7 && jokerAudience == 0){
+                printf("Already used joker\n");
+                continue; 
+            } else if (answer == q->correctOption) {
+                printf("Correct!\n");
+                break; 
             } else {
-                printf("Invalid input. Please try again.\n");
+                printf("Wrong! The correct answer was: %d.\n", q->correctOption);
+                break; 
             }
         }
     }
 
-    printf("Game Over. You completed the game.\n");
+    printf("Congratulations! You answered all questions correctly.\n");
 }
 
 int main() {
@@ -313,7 +287,7 @@ int main() {
         printMenu();
         int choice;
         scanf("%d", &choice);
-        getchar();  // Consume newline character
+        getchar(); 
 
         switch (choice) {
             case 1:
